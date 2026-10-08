@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { Command, Option } from "commander";
 import { readFileSync } from "node:fs";
-import { Client, ApiError, resolveApiUrl, ENV_HOSTS } from "./api.js";
+import { Client, ApiError, describeError, resolveApiUrl, ENV_HOSTS } from "./api.js";
 import { clearProfile, configPath, resolveCredentials, saveProfile } from "./config.js";
 import { login, mintCliToken, revokeToken, submit2fa, whoami } from "./auth.js";
 import { buildFilter, listRecordings, TABLE_COLUMNS } from "./recording.js";
@@ -243,32 +243,9 @@ a .part and renamed only once complete and verified against its recorded size.`)
 
 program.showHelpAfterError();
 
-const TLS_HINT_CODES = new Set([
-    "SELF_SIGNED_CERT_IN_CHAIN",
-    "DEPTH_ZERO_SELF_SIGNED_CERT",
-    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
-    "CERT_HAS_EXPIRED",
-    "ERR_TLS_CERT_ALTNAME_INVALID",
-]);
-
-// Node's fetch reports every transport problem as the bare string "fetch
-// failed" and puts the real reason in `cause`, so unwrapping it is the
-// difference between an actionable error and a dead end.
-function describe(err) {
-    const cause = err.cause;
-    if (!cause) {
-        return err.message;
-    }
-    const code = cause.code ?? cause.name;
-    if (TLS_HINT_CODES.has(code)) {
-        return `${err.message}: ${code} — the server's TLS certificate could not be verified. Internal hosts use self-signed certificates; pass --insecure to accept them.`;
-    }
-    return `${err.message}: ${code ?? cause.message}`;
-}
-
 try {
     await program.parseAsync(process.argv);
 } catch (err) {
-    status(`error: ${describe(err)}`);
+    status(`error: ${describeError(err)}`);
     process.exitCode = 1;
 }
