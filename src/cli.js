@@ -5,6 +5,7 @@ import { Client, ApiError, resolveApiUrl, ENV_HOSTS } from "./api.js";
 import { clearProfile, configPath, resolveCredentials, saveProfile } from "./config.js";
 import { login, mintCliToken, revokeToken, submit2fa, whoami } from "./auth.js";
 import { buildFilter, listRecordings, TABLE_COLUMNS } from "./recording.js";
+import { downloadAll, summarise } from "./download.js";
 import { prompt, requireTty } from "./prompt.js";
 import { emit, status } from "./output.js";
 
@@ -142,6 +143,76 @@ recording.command("list")
         });
         status(`${data.length} of ${total} recording(s)`);
         emit(data, { format: options.format, columns: TABLE_COLUMNS });
+    });
+
+recording.command("download")
+    .description("download recording audio as MP3")
+    // Both positionals are optional because commander cannot resolve an
+    // optional argument followed by a required one: given a single value it
+    // binds it to `id` and then reports `folder` missing.
+    .argument("[id]", "a single recording id; omit to download everything matching the filter flags")
+    .argument("[folder]", "destination folder, created if missing")
+    .option("--from <date>", "only recordings at or after this date")
+    .option("--to <date>", "only recordings at or before this date")
+    .option("--caller <number>", "partial match on the calling number")
+    .option("--called <number>", "partial match on the called number")
+    .option("--min-duration <seconds>", "only recordings at least this long")
+    .option("--max-duration <seconds>", "only recordings at most this long")
+    .option("--type <type>", "call type, e.g. I for inbound")
+    .option("--limit <n>", "maximum recordings to download when filtering", "25")
+    .option("--all", "download every match, not just the first --limit")
+    .option("--filter <json>", "raw API filter array, merged with the flags above")
+    .option("--concurrency <n>", "parallel downloads", "4")
+    .option("--skip-existing", "leave files already present at the expected size alone")
+    .action(async (first, second, cmdOptions) => {
+        const options = program.opts();
+        applyInsecure(options);
+        // One positional means it is the destination; two mean id then folder.
+        const id = second === undefined ? undefined : first;
+        const folder = second === undefined ? first : second;
+        if (!folder) {
+            throw new ApiError("a destination folder is required, e.g. vs recording download ./recordings");
+        }
+        const { client } = authenticatedClient(options);
+
+        let recordings;
+        if (id) {
+            const body = await client.get(`/monitors/${encodeURIComponent(id)}`);
+            const one = body?.data ?? body;
+            if (!one?.id) {
+                throw new ApiError(`recording ${id} was not found`);
+            }
+            recordings = [one];
+        } else {
+            const { data } = await listRecordings(client, {
+                filter: buildFilter(cmdOptions),
+                limit: Number(cmdOptions.limit),
+                all: Boolean(cmdOptions.all),
+            });
+            recordings = data;
+        }
+
+        if (recordings.length === 0) {
+            status("No recordings matched - nothing to download.");
+            emit({ downloaded: 0, skipped: 0, failed: 0, bytes: 0, files: [] }, { format: options.format });
+            return;
+        }
+
+        status(`Downloading ${recordings.length} recording(s) to ${folder} …`);
+        const results = await downloadAll(client, recordings, folder, {
+            concurrency: Number(cmdOptions.concurrency),
+            skipExisting: Boolean(cmdOptions.skipExisting),
+            onResult: (r, done, total) =>
+                status(`[${done}/${total}] ${r.status}: ${r.file ?? r.id}${r.error ? ` - ${r.error}` : ""}`),
+        });
+        const tally = summarise(results);
+        status(`${tally.downloaded} downloaded, ${tally.skipped} skipped, ${tally.failed} failed`);
+        // A table wants one row per file; JSON keeps the tally alongside them.
+        emit(options.format === "table" ? results : { ...tally, files: results },
+             { format: options.format, columns: ["id", "status", "bytes", "file"] });
+        if (tally.failed > 0) {
+            process.exitCode = 1;
+        }
     });
 
 program.showHelpAfterError();

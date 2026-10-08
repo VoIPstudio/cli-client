@@ -2,8 +2,8 @@
 
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
-> **Status:** early development. `vs auth` and `vs recording list` are
-> implemented; `vs recording download` is next.
+> **Status:** early development. `vs auth`, `vs recording list` and
+> `vs recording download` are implemented; packaging and publishing are next.
 > See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663).
 
 ## Install
@@ -24,7 +24,8 @@ vs auth login       # prompts for email and password, then stores an API token
 vs auth whoami      # shows the account the stored token belongs to
 vs auth logout      # revokes the stored token and forgets it
 
-vs recording list   # list call recordings
+vs recording list       # list call recordings
+vs recording download   # download recording audio as MP3
 ```
 
 Results are printed as JSON on stdout; prompts, progress and warnings go to
@@ -75,6 +76,38 @@ Supported operators are `eq`, `like`, `gt`, `gte`, `lt` and `lte`. Note the API
 has **no `between`** operator — a range is a `gte` plus an `lte`, which is what
 `--from`/`--to` generate for you. An unsupported operator is rejected locally
 rather than being sent and coming back as an opaque `400`.
+
+### Downloading audio
+
+```sh
+vs recording download 1052333152 ./recordings          # one, by id
+vs recording download ./recordings --all               # everything
+vs recording download ./recordings --from 2026-07-01 --type I --concurrency 8
+vs recording download ./recordings --all --skip-existing
+```
+
+The same filter flags as `list` apply. With **two** positional arguments the
+first is a recording id; with **one**, it is the destination folder and the
+filter flags choose what to download. The folder is created if missing.
+
+| Option | Meaning |
+| --- | --- |
+| `--concurrency <n>` | parallel downloads, default 4 |
+| `--skip-existing` | leave files already present at the expected size alone |
+| `--limit` / `--all` | how many matches to take, as for `list` |
+
+Files are named `<timestamp>_<caller>-<called>_<id>.mp3`, because the API sends
+no `Content-Disposition` header. The id is always included, so two calls in the
+same second between the same parties cannot collide.
+
+Each download is written to a `.part` file and renamed only once complete, and
+its length is checked against the recording's `size`. This matters because
+`/monitors/{id}.mp3` **ignores HTTP `Range`** — it always returns the whole body
+— so an interrupted download cannot be resumed, and a truncated file left in
+place would look complete to the next `--skip-existing` run.
+
+One failure does not abort a batch: it is reported against that recording and
+the rest continue. The exit status is `1` if anything failed.
 
 ## Authentication
 
