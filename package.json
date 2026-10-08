@@ -19,8 +19,13 @@
     "files": [
         "src",
         "README.md",
+        "CHANGELOG.md",
         "LICENSE"
     ],
+    "publishConfig": {
+        "registry": "https://registry.npmjs.org/",
+        "access": "public"
+    },
     "engines": {
         "node": ">=20"
     },
