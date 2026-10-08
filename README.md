@@ -3,19 +3,14 @@
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
 > **Status:** v0.1.1. Authentication and call-recording commands are
-> implemented. Not published to npm — install from source, as below.
-> See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663) and the
-> [changelog](CHANGELOG.md).
+> implemented. See the [changelog](CHANGELOG.md).
 
 ## Install
 
 Requires Node.js 20 or newer.
 
 ```sh
-git clone https://github.com/VoIPstudio/cli-client.git
-cd cli-client
-npm install
-npm link        # puts `vs` on your PATH
+npm install -g voipstudio
 ```
 
 Check it worked:
@@ -25,14 +20,20 @@ vs --version    # 0.1.1
 vs --help
 ```
 
-`npm link` can be undone with `npm unlink -g voipstudio`. If it fails with a
-permissions error, your global `node_modules` isn't writable by your user —
-either use `sudo npm link`, point npm somewhere you own
+### From source
+
+```sh
+git clone https://github.com/VoIPstudio/cli-client.git
+cd cli-client
+npm install
+npm link        # puts `vs` on your PATH
+```
+
+`npm link` can be undone with `npm unlink -g voipstudio`. If either command
+fails with a permissions error, your global `node_modules` isn't writable by
+your user — either use `sudo`, point npm somewhere you own
 (`npm config set prefix ~/.local`, then add `~/.local/bin` to `PATH`), or skip
 the link entirely and run `node src/cli.js …` from the checkout.
-
-The package is **not published to the npm registry**, so `npm install -g
-voipstudio` will not work — install from source as above.
 
 ## Usage
 

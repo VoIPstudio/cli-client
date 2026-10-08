@@ -12,7 +12,6 @@
         "url": "https://github.com/VoIPstudio/cli-client/issues"
     },
     "type": "module",
-    "private": true,
     "bin": {
         "vs": "src/cli.js"
     },
