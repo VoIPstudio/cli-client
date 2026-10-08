@@ -1,0 +1,49 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # The lowest version package.json supports, and the current release:
+        # a syntax or API difference between them should fail here, not for a user.
+        node: ["20", "24"]
+    name: node ${{ matrix.node }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+
+      - run: npm ci
+
+      - run: npm test
+
+      # The suite asserts the bin entry is 100755 in git, which only holds when
+      # the checkout preserves file modes; this proves the CLI actually starts.
+      - name: The binary runs
+        run: |
+          node src/cli.js --version
+          node src/cli.js --help > /dev/null
+
+      # npm chmods bin targets on install, so a stale committed mode shows up
+      # here as a dirty tree - the exact regression fixed in #9.
+      - name: npm install leaves the tree clean
+        run: |
+          npm install
+          git diff --exit-code || {
+            echo "::error::npm install left the working tree dirty"
+            git status --porcelain
+            exit 1
+          }
