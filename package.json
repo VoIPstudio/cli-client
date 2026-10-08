@@ -1,0 +1,41 @@
+{
+    "name": "voipstudio",
+    "version": "0.1.0",
+    "description": "Command line client for the VoIPstudio API",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/VoIPstudio/cli-client.git"
+    },
+    "homepage": "https://github.com/VoIPstudio/cli-client#readme",
+    "bugs": {
+        "url": "https://github.com/VoIPstudio/cli-client/issues"
+    },
+    "type": "module",
+    "private": true,
+    "bin": {
+        "vs": "src/cli.js"
+    },
+    "files": [
+        "src",
+        "README.md",
+        "LICENSE"
+    ],
+    "engines": {
+        "node": ">=20"
+    },
+    "scripts": {
+        "test": "node --test",
+        "vs": "node src/cli.js"
+    },
+    "dependencies": {
+        "commander": "^14.0.1"
+    },
+    "keywords": [
+        "voipstudio",
+        "voip",
+        "cli",
+        "call-recordings",
+        "telephony"
+    ]
+}
