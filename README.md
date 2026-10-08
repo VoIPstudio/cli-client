@@ -2,9 +2,9 @@
 
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
-> **Status:** early development. Authentication (`vs auth`) is implemented;
-> call recording commands (`vs recording list` / `vs recording download`) are
-> next. See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663).
+> **Status:** early development. `vs auth` and `vs recording list` are
+> implemented; `vs recording download` is next.
+> See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663).
 
 ## Install
 
@@ -23,6 +23,8 @@ npm link        # puts `vs` on your PATH
 vs auth login       # prompts for email and password, then stores an API token
 vs auth whoami      # shows the account the stored token belongs to
 vs auth logout      # revokes the stored token and forgets it
+
+vs recording list   # list call recordings
 ```
 
 Results are printed as JSON on stdout; prompts, progress and warnings go to
@@ -41,6 +43,38 @@ id     email              first_name  last_name  customer_id
 -----  -----------------  ----------  ---------  -----------
 10002  jsmith@example.com John        Smith      2
 ```
+
+## Call recordings
+
+```sh
+vs recording list                                  # most recent 25
+vs recording list --all                            # every match, paging as needed
+vs recording list --from 2026-07-01 --to 2026-07-31
+vs recording list --caller 4478 --min-duration 60
+vs recording list --type I --format table
+```
+
+| Option | Meaning |
+| --- | --- |
+| `--from` / `--to` | date bounds, `YYYY-MM-DD` or a full `YYYY-MM-DD HH:MM:SS` |
+| `--caller` / `--called` | partial match on the number |
+| `--min-duration` / `--max-duration` | bounds in seconds |
+| `--type` | call type, e.g. `I` for inbound |
+| `--limit` | maximum rows, default 25 |
+| `--all` | fetch every match, paging automatically |
+| `--filter` | raw API filter array, merged with the flags above |
+
+Flags combine with AND. For anything the flags don't cover, `--filter` takes the
+API's own filter array and merges it with them:
+
+```sh
+vs recording list --filter '[{"property":"duration","operator":"gt","value":60}]'
+```
+
+Supported operators are `eq`, `like`, `gt`, `gte`, `lt` and `lte`. Note the API
+has **no `between`** operator — a range is a `gte` plus an `lte`, which is what
+`--from`/`--to` generate for you. An unsupported operator is rejected locally
+rather than being sent and coming back as an opaque `400`.
 
 ## Authentication
 
