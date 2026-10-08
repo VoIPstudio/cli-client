@@ -52,3 +52,15 @@ test("package-lock.json records the same version as package.json", () => {
     assert.equal(lock.version, pkg.version, "package-lock.json top-level version drifted");
     assert.equal(lock.packages?.[""]?.version, pkg.version, 'package-lock.json packages[""] version drifted');
 });
+
+test("the lockfile resolves dependencies from the public npm registry", () => {
+    // Generated on a VM whose ~/.npmrc points at an internal Verdaccio, the
+    // lockfile bakes in that host - and `npm ci` then 403s for anyone outside
+    // the network, CI included. The published tarball is unaffected (the
+    // lockfile is not in "files"), so only clones and CI break.
+    const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
+    const foreign = Object.entries(lock.packages ?? {})
+        .filter(([, meta]) => meta.resolved && !meta.resolved.startsWith("https://registry.npmjs.org/"))
+        .map(([name, meta]) => `${name} -> ${meta.resolved}`);
+    assert.deepEqual(foreign, [], `lockfile resolves outside the public registry:\n${foreign.join("\n")}`);
+});
