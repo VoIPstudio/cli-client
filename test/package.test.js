@@ -43,3 +43,12 @@ test("every path listed for packing exists", () => {
         assert.doesNotThrow(() => statSync(target), `${entry} is listed in "files" but missing`);
     }
 });
+
+test("package-lock.json records the same version as package.json", () => {
+    // npm rewrites the lockfile's version fields on install. If a release bump
+    // misses them, every `npm install` leaves the tree dirty - the same symptom
+    // the executable-bit fix addressed, from a different cause.
+    const lock = JSON.parse(readFileSync(new URL("../package-lock.json", import.meta.url), "utf8"));
+    assert.equal(lock.version, pkg.version, "package-lock.json top-level version drifted");
+    assert.equal(lock.packages?.[""]?.version, pkg.version, 'package-lock.json packages[""] version drifted');
+});
