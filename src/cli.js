@@ -145,7 +145,7 @@ recording.command("list")
         emit(data, { format: options.format, columns: TABLE_COLUMNS });
     });
 
-recording.command("download")
+const download = recording.command("download")
     .description("download recording audio as MP3")
     // Both positionals are optional because commander cannot resolve an
     // optional argument followed by a required one: given a single value it
@@ -214,6 +214,32 @@ recording.command("download")
             process.exitCode = 1;
         }
     });
+
+program.addHelpText("after", `
+Examples:
+  vs auth login                                  log in and store an API token
+  vs recording list --format table               the 25 most recent recordings
+  vs recording list --all --min-duration 60      every call longer than a minute
+  vs recording download 1052333152 ./recordings  one recording, by id
+  vs recording download ./recordings --all       every recording
+
+Results are JSON on stdout; prompts and progress go to stderr, so
+"vs recording list > out.json" works without extra flags.
+
+Full documentation: https://github.com/VoIPstudio/cli-client`);
+
+download.addHelpText("after", `
+Positional arguments:
+  Two values mean "<id> <folder>"; a single value is the folder, and the filter
+  options decide what gets downloaded.
+
+Examples:
+  vs recording download 1052333152 ./recordings
+  vs recording download ./recordings --all --skip-existing
+  vs recording download ./recordings --from 2026-07-01 --type I --concurrency 8
+
+Downloads cannot resume: the API ignores HTTP Range, so each file is written to
+a .part and renamed only once complete and verified against its recorded size.`);
 
 program.showHelpAfterError();
 

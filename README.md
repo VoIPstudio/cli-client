@@ -2,9 +2,10 @@
 
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
-> **Status:** early development. `vs auth`, `vs recording list` and
-> `vs recording download` are implemented; packaging and publishing are next.
-> See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663).
+> **Status:** v0.1.0. Authentication and call-recording commands are
+> implemented. Not published to npm — install from source, as below.
+> See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663) and the
+> [changelog](CHANGELOG.md).
 
 ## Install
 
@@ -16,6 +17,22 @@ cd cli-client
 npm install
 npm link        # puts `vs` on your PATH
 ```
+
+Check it worked:
+
+```sh
+vs --version    # 0.1.0
+vs --help
+```
+
+`npm link` can be undone with `npm unlink -g voipstudio`. If it fails with a
+permissions error, your global `node_modules` isn't writable by your user —
+either use `sudo npm link`, point npm somewhere you own
+(`npm config set prefix ~/.local`, then add `~/.local/bin` to `PATH`), or skip
+the link entirely and run `node src/cli.js …` from the checkout.
+
+The package is **not published to the npm registry**, so `npm install -g
+voipstudio` will not work — install from source as above.
 
 ## Usage
 
