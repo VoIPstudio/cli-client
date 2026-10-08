@@ -200,3 +200,32 @@ test("ApiError from the client propagates with its message intact", async () => 
     const { client } = clientReturning([{ ok: false, status: 403, body: null }]);
     await assert.rejects(() => downloadOne(client, REC, dir), (err) => err instanceof ApiError);
 });
+
+test("a transport error reports its cause, not a bare 'fetch failed'", async () => {
+    // Node's fetch hides the real reason in err.cause. A rate-limit page with
+    // malformed headers arrives as HPE_INVALID_HEADER_TOKEN, and reporting only
+    // err.message would tell the user nothing at all.
+    const dir = tempDir();
+    const fetchImpl = async () => {
+        const err = new TypeError("fetch failed");
+        err.cause = Object.assign(new Error("Invalid header value char"), { code: "HPE_INVALID_HEADER_TOKEN" });
+        throw err;
+    };
+    const client = new Client({ baseUrl: BASE, token: "t", fetchImpl });
+    const results = await downloadAll(client, [REC], dir);
+    assert.equal(results[0].status, "failed");
+    assert.match(results[0].error, /HPE_INVALID_HEADER_TOKEN/);
+    assert.match(results[0].error, /rate-limit or error page with malformed headers/);
+});
+
+test("a TLS failure points at --insecure", async () => {
+    const dir = tempDir();
+    const fetchImpl = async () => {
+        const err = new TypeError("fetch failed");
+        err.cause = Object.assign(new Error("self signed"), { code: "DEPTH_ZERO_SELF_SIGNED_CERT" });
+        throw err;
+    };
+    const client = new Client({ baseUrl: BASE, token: "t", fetchImpl });
+    const results = await downloadAll(client, [REC], dir);
+    assert.match(results[0].error, /--insecure/);
+});

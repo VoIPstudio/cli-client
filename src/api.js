@@ -15,6 +15,33 @@ export class ApiError extends Error {
     }
 }
 
+const TLS_HINT_CODES = new Set([
+    "SELF_SIGNED_CERT_IN_CHAIN",
+    "DEPTH_ZERO_SELF_SIGNED_CERT",
+    "UNABLE_TO_VERIFY_LEAF_SIGNATURE",
+    "CERT_HAS_EXPIRED",
+    "ERR_TLS_CERT_ALTNAME_INVALID",
+]);
+
+// Node's fetch reports every transport problem as the bare string "fetch
+// failed" and puts the real reason in `cause`, so unwrapping it is the
+// difference between an actionable error and a dead end. Every path that
+// reports an error to the user must go through this, not err.message.
+export function describeError(err) {
+    const cause = err?.cause;
+    if (!cause) {
+        return err?.message ?? String(err);
+    }
+    const code = cause.code ?? cause.name;
+    if (TLS_HINT_CODES.has(code)) {
+        return `${err.message}: ${code} — the server's TLS certificate could not be verified. Internal hosts use self-signed certificates; pass --insecure to accept them.`;
+    }
+    if (code === "HPE_INVALID_HEADER_TOKEN") {
+        return `${err.message}: ${code} — the server sent a response this HTTP/1.1 parser rejects. A rate-limit or error page with malformed headers looks like this; the status code is unavailable.`;
+    }
+    return `${err.message}: ${code ?? cause.message}`;
+}
+
 // An explicit --api-url wins over the environment variable, which wins over the
 // named environment. Anything but `prod` is a Level 7 internal host.
 export function resolveApiUrl({ apiUrl, env: name, processEnv = process.env } = {}) {

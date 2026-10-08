@@ -4,7 +4,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { join } from "node:path";
 
-import { ApiError } from "./api.js";
+import { ApiError, describeError } from "./api.js";
 import { RESOURCE } from "./recording.js";
 
 // Windows forbids the first set outright; the rest would make shell-unfriendly
@@ -60,7 +60,7 @@ export async function downloadOne(client, recording, destination, { skipExisting
         await pipeline(Readable.fromWeb(res.body), createWriteStream(partial));
     } catch (err) {
         await unlink(partial).catch(() => {});
-        throw new ApiError(`recording ${recording.id}: download failed - ${err.message}`);
+        throw new ApiError(`recording ${recording.id}: download failed - ${describeError(err)}`);
     }
 
     const written = await sizeOf(partial);
@@ -92,7 +92,7 @@ export async function downloadAll(client, recordings, destination, { concurrency
             try {
                 results[index] = await downloadOne(client, recording, destination, { skipExisting });
             } catch (err) {
-                results[index] = { id: recording.id, file: null, bytes: 0, status: "failed", error: err.message };
+                results[index] = { id: recording.id, file: null, bytes: 0, status: "failed", error: describeError(err) };
             }
             if (onResult) {
                 onResult(results[index], index + 1, recordings.length);
