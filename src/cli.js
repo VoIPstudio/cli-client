@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { Client, ApiError, resolveApiUrl, ENV_HOSTS } from "./api.js";
 import { clearProfile, configPath, resolveCredentials, saveProfile } from "./config.js";
 import { login, mintCliToken, revokeToken, submit2fa, whoami } from "./auth.js";
+import { buildFilter, listRecordings, TABLE_COLUMNS } from "./recording.js";
 import { prompt, requireTty } from "./prompt.js";
 import { emit, status } from "./output.js";
 
@@ -111,6 +112,36 @@ auth.command("logout")
                 : `Token removed locally; server-side revoke failed (${outcome.reason}).`,
         );
         emit({ revoked: outcome.revoked, profile: creds.profile }, { format: options.format });
+    });
+
+const recording = program.command("recording").description("work with call recordings");
+
+recording.command("list")
+    .description("list call recordings")
+    .option("--from <date>", "only recordings at or after this date (YYYY-MM-DD or full timestamp)")
+    .option("--to <date>", "only recordings at or before this date")
+    .option("--caller <number>", "partial match on the calling number")
+    .option("--called <number>", "partial match on the called number")
+    .option("--min-duration <seconds>", "only recordings at least this long")
+    .option("--max-duration <seconds>", "only recordings at most this long")
+    .option("--type <type>", "call type, e.g. I for inbound")
+    .option("--limit <n>", "maximum rows to return", "25")
+    .option("--all", "fetch every matching recording, paging as needed")
+    .option("--filter <json>", "raw API filter array, merged with the flags above")
+    .action(async (cmdOptions) => {
+        const options = program.opts();
+        applyInsecure(options);
+        const { client } = authenticatedClient(options);
+        const filter = buildFilter(cmdOptions);
+        const { data, total } = await listRecordings(client, {
+            filter,
+            limit: Number(cmdOptions.limit),
+            all: Boolean(cmdOptions.all),
+            onPage: ({ collected, total: all }) =>
+                cmdOptions.all && collected < all ? status(`fetched ${collected}/${all} …`) : undefined,
+        });
+        status(`${data.length} of ${total} recording(s)`);
+        emit(data, { format: options.format, columns: TABLE_COLUMNS });
     });
 
 program.showHelpAfterError();
