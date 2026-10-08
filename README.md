@@ -21,7 +21,7 @@ npm link        # puts `vs` on your PATH
 Check it worked:
 
 ```sh
-vs --version    # 0.1.0
+vs --version    # 0.1.1
 vs --help
 ```
 
