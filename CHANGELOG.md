@@ -34,7 +34,9 @@ commands described in L7D-11663.
 ### Notes
 
 - Not published to npm. Install from source; see the README.
-- The two-factor login path is implemented but has not been exercised against a
-  2FA-enabled account.
+- The two-factor login path has been verified end to end against a 2FA-enabled
+  account on production: the API answers `202` with a nonce, the emailed code is
+  exchanged via `POST /login2fa`, and the resulting session mints the API token
+  normally.
 
 [0.1.0]: https://github.com/VoIPstudio/cli-client/releases/tag/v0.1.0
