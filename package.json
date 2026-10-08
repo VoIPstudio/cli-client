@@ -1,6 +1,6 @@
 {
     "name": "voipstudio",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Command line client for the VoIPstudio API",
     "license": "MIT",
     "repository": {
