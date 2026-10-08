@@ -1,24 +1,44 @@
 # vs — VoIPstudio CLI
 
+[![npm version](https://img.shields.io/npm/v/voipstudio.svg)](https://www.npmjs.com/package/voipstudio)
+[![node](https://img.shields.io/node/v/voipstudio.svg)](https://www.npmjs.com/package/voipstudio)
+[![license](https://img.shields.io/npm/l/voipstudio.svg)](https://github.com/VoIPstudio/cli-client/blob/main/LICENSE)
+
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
-> **Status:** v0.1.1. Authentication and call-recording commands are
-> implemented. See the [changelog](CHANGELOG.md).
+> **Status:** early but working. Authentication and call-recording commands are
+> implemented. See the [changelog](https://github.com/VoIPstudio/cli-client/blob/main/CHANGELOG.md).
 
 ## Install
 
+Published on npm as [**`voipstudio`**](https://www.npmjs.com/package/voipstudio).
 Requires Node.js 20 or newer.
 
 ```sh
 npm install -g voipstudio
 ```
 
-Check it worked:
+That installs the `vs` command. Check it worked:
 
 ```sh
-vs --version    # 0.1.1
+vs --version
 vs --help
 ```
+
+To run it without installing globally:
+
+```sh
+npx voipstudio --help
+```
+
+Upgrading later:
+
+```sh
+npm update -g voipstudio      # or: npm install -g voipstudio@latest
+```
+
+<sup>If `npm install -g voipstudio` resolves to an old version, your npm cache
+may be stale — add `--prefer-online`.</sup>
 
 ### From source
 
@@ -191,4 +211,4 @@ for argument parsing; everything else uses the Node standard library.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](https://github.com/VoIPstudio/cli-client/blob/main/LICENSE)
