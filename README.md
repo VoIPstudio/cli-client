@@ -2,7 +2,7 @@
 
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
-> **Status:** v0.1.0. Authentication and call-recording commands are
+> **Status:** v0.1.1. Authentication and call-recording commands are
 > implemented. Not published to npm — install from source, as below.
 > See [L7D-11663](https://level7.atlassian.net/browse/L7D-11663) and the
 > [changelog](CHANGELOG.md).
