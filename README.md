@@ -209,6 +209,27 @@ node src/cli.js --help
 The only runtime dependency is [`commander`](https://github.com/tj/commander.js)
 for argument parsing; everything else uses the Node standard library.
 
+## Support
+
+**Questions about your VoIPstudio account, numbers, billing or the platform
+itself** go to VoIPstudio support — see
+[voipstudio.com/support](https://voipstudio.com/support/):
+
+| Channel | Availability |
+| --- | --- |
+| **Live chat and phone** | Monday–Friday, 08:00–23:00 UTC. Live chat is opened from inside the dashboard. |
+| **Ticket** | Around the clock, every day — usually answered within two hours. Opened from the dashboard. |
+| **Remote desktop** | Screen sharing via AnyDesk, on Windows, macOS and Linux. |
+
+Phone: **+44 203 695 8964** (UK) · **+1 414 435 9681** (US). Have your customer
+number ready. Sales enquiries: <sales@voipstudio.com>.
+
+**Bugs or feature requests for this CLI** belong on the issue tracker instead,
+where they reach the people who maintain the code:
+[github.com/VoIPstudio/cli-client/issues](https://github.com/VoIPstudio/cli-client/issues).
+Including the output of `vs --version` and the failing command makes them much
+quicker to act on.
+
 ## License
 
 [MIT](https://github.com/VoIPstudio/cli-client/blob/main/LICENSE)
