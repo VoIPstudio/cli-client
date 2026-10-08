@@ -6,7 +6,7 @@ import { clearProfile, configPath, resolveCredentials, saveProfile } from "./con
 import { login, mintCliToken, revokeToken, submit2fa, whoami } from "./auth.js";
 import { buildFilter, listRecordings, TABLE_COLUMNS } from "./recording.js";
 import { downloadAll, summarise } from "./download.js";
-import { prompt, requireTty } from "./prompt.js";
+import { prompt, promptHidden, requireTty } from "./prompt.js";
 import { emit, status } from "./output.js";
 
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -60,7 +60,7 @@ auth.command("login")
 
         requireTty();
         const email = cmdOptions.email ?? (await prompt("Email: "));
-        const password = await prompt("Password: ", { hidden: true });
+        const password = await promptHidden("Password: ");
 
         status(`Authenticating against ${baseUrl} …`);
         let result = await login(sessionClient, email, password);
