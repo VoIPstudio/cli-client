@@ -4,6 +4,36 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] — 2026-10-10
+
+Adds list and download across the API's downloadable entities.
+
+### Added
+
+- `vs voicemail list|download` — voicemail messages (`voicemessages`), audio as
+  MP3, filterable by `origtime` date range, caller, dialled number, duration
+  and folder.
+- `vs fax list|download` — faxes as PDF, named with the filename the API
+  supplies (matching the dashboard), filterable by status, type and filename.
+  No number filters: the API rejects `from`/`to` there under every operator.
+- `vs invoice list|download` — billing transactions; the PDF invoice arrives
+  base64-encoded in a JSON envelope and is decoded on the way to disk. An
+  invoice for an incomplete transaction is reported as skipped, not failed.
+- `vs cdr list`, `vs sms list`, `vs conversation list` — list-only; these have
+  no per-record file, and the API's bulk `.csv` endpoints are asynchronous
+  export jobs rather than downloads.
+- `--from`/`--to` resolve against each entity's own date field (`timestamp`,
+  `origtime`, `created_at`, `calldate`). SMS number filters are `--sender` and
+  `--recipient`, since `--from`/`--to` are dates everywhere.
+- PDF downloads are verified to begin with `%PDF`, so a JSON error page can
+  never be saved as a plausible-looking `.pdf`.
+
+### Fixed
+
+- Download error responses now surface the server's message; previously a file
+  request's failure was reduced to its HTTP status, hiding explanations like
+  "This Transaction is not completed yet".
+
 ## [0.1.1] — 2026-10-08
 
 Bug fixes found in real-world use. No functional changes.
@@ -61,5 +91,6 @@ commands described in L7D-11663.
   exchanged via `POST /login2fa`, and the resulting session mints the API token
   normally.
 
+[0.2.0]: https://github.com/VoIPstudio/cli-client/releases/tag/v0.2.0
 [0.1.1]: https://github.com/VoIPstudio/cli-client/releases/tag/v0.1.1
 [0.1.0]: https://github.com/VoIPstudio/cli-client/releases/tag/v0.1.0
