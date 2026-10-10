@@ -4,7 +4,8 @@ import { readFileSync } from "node:fs";
 import { Client, ApiError, describeError, resolveApiUrl, ENV_HOSTS } from "./api.js";
 import { clearProfile, configPath, resolveCredentials, saveProfile } from "./config.js";
 import { login, mintCliToken, revokeToken, submit2fa, whoami } from "./auth.js";
-import { buildFilter, listRecordings, TABLE_COLUMNS } from "./recording.js";
+import { ENTITIES } from "./entities.js";
+import { buildFilter, listEntity } from "./list.js";
 import { downloadAll, summarise } from "./download.js";
 import { prompt, promptHidden, requireTty } from "./prompt.js";
 import { emit, status } from "./output.js";
@@ -115,105 +116,117 @@ auth.command("logout")
         emit({ revoked: outcome.revoked, profile: creds.profile }, { format: options.format });
     });
 
-const recording = program.command("recording").description("work with call recordings");
+// Every entity registers from the same definition, so adding one is a change
+// to entities.js rather than another near-copy of this block.
+for (const [name, spec] of Object.entries(ENTITIES)) {
+    const group = program.command(name).description(`work with ${spec.plural}`);
 
-recording.command("list")
-    .description("list call recordings")
-    .option("--from <date>", "only recordings at or after this date (YYYY-MM-DD or full timestamp)")
-    .option("--to <date>", "only recordings at or before this date")
-    .option("--caller <number>", "partial match on the calling number")
-    .option("--called <number>", "partial match on the called number")
-    .option("--min-duration <seconds>", "only recordings at least this long")
-    .option("--max-duration <seconds>", "only recordings at most this long")
-    .option("--type <type>", "call type, e.g. I for inbound")
-    .option("--limit <n>", "maximum rows to return", "25")
-    .option("--all", "fetch every matching recording, paging as needed")
-    .option("--filter <json>", "raw API filter array, merged with the flags above")
-    .action(async (cmdOptions) => {
-        const options = program.opts();
-        applyInsecure(options);
-        const { client } = authenticatedClient(options);
-        const filter = buildFilter(cmdOptions);
-        const { data, total } = await listRecordings(client, {
-            filter,
-            limit: Number(cmdOptions.limit),
-            all: Boolean(cmdOptions.all),
-            onPage: ({ collected, total: all }) =>
-                cmdOptions.all && collected < all ? status(`fetched ${collected}/${all} …`) : undefined,
+    const withFilters = (cmd) => {
+        cmd.option("--from <date>", `only ${spec.plural} at or after this date (matches ${spec.dateField})`)
+           .option("--to <date>", `only ${spec.plural} at or before this date`);
+        for (const flag of Object.keys(spec.filters ?? {})) {
+            cmd.option(`--${flag} <value>`, `filter on ${spec.filters[flag].property}`);
+        }
+        return cmd
+            .option("--limit <n>", "maximum rows", "25")
+            .option("--all", "fetch every match, paging as needed")
+            .option("--filter <json>", "raw API filter array, merged with the flags above");
+    };
+
+    withFilters(group.command("list").description(`list ${spec.plural}`))
+        .action(async (cmdOptions) => {
+            const options = program.opts();
+            applyInsecure(options);
+            const { client } = authenticatedClient(options);
+            const { data, total } = await listEntity(client, spec, {
+                filter: buildFilter(spec, cmdOptions),
+                limit: Number(cmdOptions.limit),
+                all: Boolean(cmdOptions.all),
+                onPage: ({ collected, total: all }) =>
+                    cmdOptions.all && collected < all ? status(`fetched ${collected}/${all} …`) : undefined,
+            });
+            status(`${data.length} of ${total} ${spec.plural}`);
+            emit(data, { format: options.format, columns: spec.columns });
         });
-        status(`${data.length} of ${total} recording(s)`);
-        emit(data, { format: options.format, columns: TABLE_COLUMNS });
-    });
 
-const download = recording.command("download")
-    .description("download recording audio as MP3")
-    // Both positionals are optional because commander cannot resolve an
-    // optional argument followed by a required one: given a single value it
-    // binds it to `id` and then reports `folder` missing.
-    .argument("[id]", "a single recording id; omit to download everything matching the filter flags")
-    .argument("[folder]", "destination folder, created if missing")
-    .option("--from <date>", "only recordings at or after this date")
-    .option("--to <date>", "only recordings at or before this date")
-    .option("--caller <number>", "partial match on the calling number")
-    .option("--called <number>", "partial match on the called number")
-    .option("--min-duration <seconds>", "only recordings at least this long")
-    .option("--max-duration <seconds>", "only recordings at most this long")
-    .option("--type <type>", "call type, e.g. I for inbound")
-    .option("--limit <n>", "maximum recordings to download when filtering", "25")
-    .option("--all", "download every match, not just the first --limit")
-    .option("--filter <json>", "raw API filter array, merged with the flags above")
-    .option("--concurrency <n>", "parallel downloads", "4")
-    .option("--skip-existing", "leave files already present at the expected size alone")
-    .action(async (first, second, cmdOptions) => {
+    if (!spec.download) {
+        continue;
+    }
+
+    const dl = withFilters(
+        group.command("download")
+            .description(`download ${spec.plural} as files`)
+            // Both positionals are optional because commander cannot resolve an
+            // optional argument followed by a required one: given a single value
+            // it binds it to `id` and then reports `folder` missing.
+            .argument("[id]", `a single ${spec.noun} id; omit to download everything matching the filters`)
+            .argument("[folder]", "destination folder, created if missing"),
+    )
+        .option("--concurrency <n>", "parallel downloads", "4")
+        .option("--skip-existing", "leave files already present alone");
+
+    dl.addHelpText("after", `
+Positional arguments:
+  Two values mean "<id> <folder>"; a single value is the folder, and the filter
+  options decide what gets downloaded.
+
+Examples:
+  vs ${name} download ./${spec.plural} --all
+  vs ${name} download ./${spec.plural} --from 2026-07-01 --concurrency 8
+${spec.sizeField
+    ? "\nEach file's length is checked against the record's size, so a truncated\ntransfer is detected and discarded."
+    : `\nNote: a ${spec.noun} record carries no size, so a short-but-complete response\ncannot be detected. Files are still written to .part and renamed only on\nsuccess, so an interrupted download never leaves a file that looks finished.`}`);
+
+    dl.action(async (first, second, cmdOptions) => {
         const options = program.opts();
         applyInsecure(options);
         // One positional means it is the destination; two mean id then folder.
         const id = second === undefined ? undefined : first;
         const folder = second === undefined ? first : second;
         if (!folder) {
-            throw new ApiError("a destination folder is required, e.g. vs recording download ./recordings");
+            throw new ApiError(`a destination folder is required, e.g. vs ${name} download ./out`);
         }
         const { client } = authenticatedClient(options);
 
-        let recordings;
+        let records;
         if (id) {
-            const body = await client.get(`/monitors/${encodeURIComponent(id)}`);
+            const body = await client.get(`/${spec.resource}/${encodeURIComponent(id)}`);
             const one = body?.data ?? body;
             if (!one?.id) {
-                throw new ApiError(`recording ${id} was not found`);
+                throw new ApiError(`${spec.noun} ${id} was not found`);
             }
-            recordings = [one];
+            records = [one];
         } else {
-            const { data } = await listRecordings(client, {
-                filter: buildFilter(cmdOptions),
+            const { data } = await listEntity(client, spec, {
+                filter: buildFilter(spec, cmdOptions),
                 limit: Number(cmdOptions.limit),
                 all: Boolean(cmdOptions.all),
             });
-            recordings = data;
+            records = data;
         }
 
-        if (recordings.length === 0) {
-            status("No recordings matched - nothing to download.");
+        if (records.length === 0) {
+            status(`No ${spec.plural} matched - nothing to download.`);
             emit({ downloaded: 0, skipped: 0, failed: 0, bytes: 0, files: [] }, { format: options.format });
             return;
         }
 
-        status(`Downloading ${recordings.length} recording(s) to ${folder} …`);
-        const results = await downloadAll(client, recordings, folder, {
+        status(`Downloading ${records.length} ${spec.plural} to ${folder} …`);
+        const results = await downloadAll(client, spec, records, folder, {
             concurrency: Number(cmdOptions.concurrency),
             skipExisting: Boolean(cmdOptions.skipExisting),
             onResult: (r, done, total) =>
-                status(`[${done}/${total}] ${r.status}: ${r.file ?? r.id}${r.error ? ` - ${r.error}` : ""}`),
+                status(`[${done}/${total}] ${r.status}: ${r.file ?? r.id}${r.error ? ` - ${r.error}` : ""}${r.reason ? ` - ${r.reason}` : ""}`),
         });
         const tally = summarise(results);
         status(`${tally.downloaded} downloaded, ${tally.skipped} skipped, ${tally.failed} failed`);
-        // A table wants one row per file; JSON keeps the tally alongside them.
         emit(options.format === "table" ? results : { ...tally, files: results },
              { format: options.format, columns: ["id", "status", "bytes", "file"] });
         if (tally.failed > 0) {
             process.exitCode = 1;
         }
     });
+}
 
 program.addHelpText("after", `
 Examples:
@@ -227,19 +240,6 @@ Results are JSON on stdout; prompts and progress go to stderr, so
 "vs recording list > out.json" works without extra flags.
 
 Full documentation: https://github.com/VoIPstudio/cli-client`);
-
-download.addHelpText("after", `
-Positional arguments:
-  Two values mean "<id> <folder>"; a single value is the folder, and the filter
-  options decide what gets downloaded.
-
-Examples:
-  vs recording download 1052333152 ./recordings
-  vs recording download ./recordings --all --skip-existing
-  vs recording download ./recordings --from 2026-07-01 --type I --concurrency 8
-
-Downloads cannot resume: the API ignores HTTP Range, so each file is written to
-a .part and renamed only once complete and verified against its recorded size.`);
 
 program.showHelpAfterError();
 
