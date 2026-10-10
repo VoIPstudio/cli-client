@@ -48,4 +48,11 @@ jobs:
           echo "tag=$tag package.json=$pkg"
           test "$tag" = "$pkg" || { echo "::error::tag $GITHUB_REF_NAME does not match package.json $pkg"; exit 1; }
 
-      - run: npm publish
+      # Temporarily verbose: at default loglevel a failed OIDC exchange is
+      # silent and the publish just ends ENEEDAUTH with no explanation.
+      - name: Show OIDC context
+        run: |
+          echo "ACTIONS_ID_TOKEN_REQUEST_URL set: ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
+          npm --version
+          npm config get registry
+      - run: npm publish --loglevel http
