@@ -82,7 +82,14 @@ export class Client {
         const res = await this.fetchImpl(`${this.baseUrl}${path}`, init);
         if (raw) {
             if (!res.ok) {
-                throw new ApiError(`Request to ${path} failed (HTTP ${res.status})`, { status: res.status });
+                // File endpoints still answer errors as JSON, and that message
+                // is the only thing distinguishing "no invoice yet" from a real
+                // failure - so it must be read rather than reduced to a status.
+                const detail = typeof res.json === "function" ? await res.json().catch(() => null) : null;
+                throw new ApiError(messageFrom(detail, `Request to ${path} failed (HTTP ${res.status})`), {
+                    status: res.status,
+                    body: detail,
+                });
             }
             return res;
         }

@@ -6,8 +6,8 @@
 
 Command line client for the [VoIPstudio](https://voipstudio.com) API.
 
-> **Status:** early but working. Authentication and call-recording commands are
-> implemented. See the [changelog](https://github.com/VoIPstudio/cli-client/blob/main/CHANGELOG.md).
+> **Status:** early but working. Authentication, and list/download across seven
+> entity types. See the [changelog](https://github.com/VoIPstudio/cli-client/blob/main/CHANGELOG.md).
 
 ## Install
 
@@ -62,9 +62,16 @@ vs auth login       # prompts for email and password, then stores an API token
 vs auth whoami      # shows the account the stored token belongs to
 vs auth logout      # revokes the stored token and forgets it
 
-vs recording list       # list call recordings
-vs recording download   # download recording audio as MP3
+vs recording list       # call recordings      (download: MP3)
+vs voicemail list       # voicemail messages    (download: MP3)
+vs fax list             # sent/received faxes   (download: PDF)
+vs invoice list         # billing transactions  (download: PDF)
+vs cdr list             # call detail records
+vs sms list             # SMS messages
+vs conversation list    # conversations
 ```
+
+Every entity supports `list`; the four with files also support `download`.
 
 Results are printed as JSON on stdout; prompts, progress and warnings go to
 stderr. That means you can redirect or pipe without any extra flags:
@@ -82,6 +89,33 @@ id     email              first_name  last_name  customer_id
 -----  -----------------  ----------  ---------  -----------
 10002  jsmith@example.com John        Smith      2
 ```
+
+## Entities
+
+| Command | API resource | Date field | Download |
+| --- | --- | --- | --- |
+| `vs recording` | `monitors` | `timestamp` | `.mp3` |
+| `vs voicemail` | `voicemessages` | `origtime` | `.mp3` |
+| `vs fax` | `faxes` | `created_at` | `.pdf` |
+| `vs invoice` | `transactions` | `created_at` | `.pdf` |
+| `vs cdr` | `cdrs` | `calldate` | — |
+| `vs sms` | `sms` | `created_at` | — |
+| `vs conversation` | `conversations` | `created_at` | — |
+
+`--from` and `--to` are **date bounds on every entity**, resolved against that
+entity's own date field — so `vs cdr list --from 2026-09-01` filters on
+`calldate` while `vs voicemail list --from …` filters on `origtime`.
+
+Because SMS also has `from`/`to` *numbers*, number filters are named
+`--sender` and `--recipient` to avoid the collision. Run
+`vs <entity> list --help` for the filters a given entity accepts — they differ,
+and only the ones the API actually supports are offered. Fax, for instance, has
+no number filter at all: the API rejects `from`/`to` there under every operator.
+
+CDR, SMS and conversation have no per-record file. The API does offer bulk CSV
+(`/cdrs.csv` and friends), but those are **asynchronous export jobs** returning
+`202` and queueing a task rather than streaming a file, so they are not wired up
+here.
 
 ## Call recordings
 
@@ -138,11 +172,23 @@ Files are named `<timestamp>_<caller>-<called>_<id>.mp3`, because the API sends
 no `Content-Disposition` header. The id is always included, so two calls in the
 same second between the same parties cannot collide.
 
-Each download is written to a `.part` file and renamed only once complete, and
-its length is checked against the recording's `size`. This matters because
-`/monitors/{id}.mp3` **ignores HTTP `Range`** — it always returns the whole body
-— so an interrupted download cannot be resumed, and a truncated file left in
-place would look complete to the next `--skip-existing` run.
+Each download is written to a `.part` file and renamed only once complete. This
+matters because the file endpoints **ignore HTTP `Range`** — they always return
+the whole body — so an interrupted download cannot be resumed, and a truncated
+file left in place would look complete to the next `--skip-existing` run.
+
+Only recordings carry a `size` field, so only they can have their length
+verified against the record. For voicemail, fax and invoices a response that is
+short but ends cleanly cannot be detected.
+
+PDF downloads are checked to actually begin with `%PDF`. That is not paranoia:
+the invoice endpoint answers `200 application/json` with the document
+base64-encoded as `{"data":{"base64":…}}` rather than streaming it, and writing
+that envelope verbatim produced 25 kB of JSON in a file named `.pdf` which
+looked like a perfectly successful download.
+
+An invoice for an incomplete transaction has no PDF yet. That is reported as
+**skipped** rather than failed, so a bulk run's exit status stays meaningful.
 
 One failure does not abort a batch: it is reported against that recording and
 the rest continue. The exit status is `1` if anything failed.
